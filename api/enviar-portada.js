@@ -69,6 +69,12 @@ export default async function handler(req, res) {
       year: 'numeric', month: 'long', day: 'numeric'
     });
 
+    const base64Data = fileBuffer.toString('base64');
+    // Normaliza el tipo a algo que el regex del workflow reconozca (png|jpeg|jpg|webp)
+    const tipoNormalizado = mimeType.includes('png') ? 'png'
+      : mimeType.includes('webp') ? 'webp'
+      : 'jpeg';
+
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -81,13 +87,11 @@ export default async function handler(req, res) {
       from: `Portada El Horizonte <${GMAIL_USER}>`,
       to: DESTINO_EMAIL,
       subject: `Portada El Horizonte — ${fechaHoy}`,
-      text: `Portada recibida vía formulario web el ${fechaHoy}. Adjunta para procesamiento automático.`,
-      attachments: [
-        {
-          filename,
-          content: fileBuffer,
-        },
-      ],
+      // La imagen va INCRUSTADA en el HTML como base64 (data URI),
+      // no como adjunto — así es como el workflow de n8n la espera leer.
+      html: `<p>Portada recibida vía formulario web el ${fechaHoy}.</p>
+             <img src="data:image/${tipoNormalizado};base64,${base64Data}" alt="portada" />`,
+      text: `Portada recibida vía formulario web el ${fechaHoy}. (imagen incrustada en el HTML)`,
     });
 
     return res.status(200).json({ ok: true });
@@ -97,4 +101,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: err.message });
   }
 }
-
